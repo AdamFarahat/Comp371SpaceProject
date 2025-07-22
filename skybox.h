@@ -5,6 +5,6 @@
 
 const char* getSkyboxVertexShaderSource();
 const char* getSkyboxFragmentShaderSource();
-int createSkyboxVertexBufferObject();
+GLuint createSkyboxVAO();
 int compileAndLinkSkyboxShaders();
 unsigned int loadSkyBox(std::vector<std::string> faces);

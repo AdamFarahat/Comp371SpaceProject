@@ -10,6 +10,7 @@
 
 #include <glm/glm.hpp>                  // GLM is an optimized math library with syntax to similar to OpenGL Shading Language
 #include <glm/gtc/matrix_transform.hpp> // Include for glm::perspective and glm::lookAt
+#include <glm/gtc/type_ptr.hpp>         // Include for glm::value_ptr
 #include "stb_image.h"
 #include "skybox.h"
 #include "camera.h"
@@ -23,7 +24,7 @@ const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
 // camera
-glm::vec3 startingCameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 startingCameraPos = glm::vec3(0.0f, 0.0f, 2.0f);
 glm::vec3 startingCameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 startingCameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -37,6 +38,88 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f;
+
+//shaders here
+const char* getVertexShaderSource() {
+    return
+        "#version 330 core\n"
+        "layout (location = 0) in vec3 aPos;\n"
+        "layout (location = 1) in vec3 aColor;\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
+        "out vec3 vertexColor;\n"
+        "void main() {\n"
+        "    vertexColor = aColor;\n"
+        "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+        "}";
+}
+
+const char* getFragmentShaderSource() {
+    return
+        "#version 330 core\n"
+        "in vec3 vertexColor;\n"
+        "out vec4 FragColor;\n"
+        "void main() {\n"
+        "    FragColor = vec4(vertexColor, 1.0);\n"
+        "}";
+}
+
+GLuint compileShader(GLenum type, const char* source) {
+    GLuint shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, NULL);
+    glCompileShader(shader);
+    return shader;
+}
+
+GLuint createShaderProgram() {
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, getVertexShaderSource());
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, getFragmentShaderSource());
+
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    return shaderProgram;
+}
+
+void generateSphere(std::vector<float>& vertices, std::vector<unsigned int>& indices, int sectorCount = 36, int stackCount = 18) {
+    float radius = 1.0f;
+    for (int i = 0; i <= stackCount; ++i) {
+        float stackAngle = glm::pi<float>() / 2 - i * glm::pi<float>() / stackCount;
+        float xy = radius * cosf(stackAngle);
+        float z = radius * sinf(stackAngle);
+
+        for (int j = 0; j <= sectorCount; ++j) {
+            float sectorAngle = j * 2 * glm::pi<float>() / sectorCount;
+            float x = xy * cosf(sectorAngle);
+            float y = xy * sinf(sectorAngle);
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+            vertices.push_back(1.0f);
+            vertices.push_back(1.0f);
+            vertices.push_back(0.0f);
+        }
+    }
+
+    for (int i = 0; i < stackCount; ++i) {
+        for (int j = 0; j < sectorCount; ++j) {
+            int first = i * (sectorCount + 1) + j;
+            int second = first + sectorCount + 1;
+            indices.push_back(first);
+            indices.push_back(second);
+            indices.push_back(first + 1);
+            indices.push_back(second);
+            indices.push_back(second + 1);
+            indices.push_back(first + 1);
+        }
+    }
+}
 
 int main()
 {
@@ -66,7 +149,7 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -86,7 +169,7 @@ int main()
         "skybox/back.png"};
     unsigned int cubemapTexture = loadSkyBox(faces);
     glDepthMask(GL_FALSE);
-    unsigned int skyboxVAO = createSkyboxVertexBufferObject();
+    unsigned int skyboxVAO = createSkyboxVAO();
     // Load shaders
     int skyboxShader = compileAndLinkSkyboxShaders();
     glUseProgram(skyboxShader);
@@ -95,6 +178,29 @@ int main()
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glDepthMask(GL_TRUE);
+
+    // Setup sphere
+    std::vector<float> sphereVertices;
+    std::vector<unsigned int> sphereIndices;
+    generateSphere(sphereVertices, sphereIndices);
+
+    GLuint sphereVAO, sphereVBO, sphereEBO;
+    glGenVertexArrays(1, &sphereVAO);
+    glGenBuffers(1, &sphereVBO);
+    glGenBuffers(1, &sphereEBO);
+
+    glBindVertexArray(sphereVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
+    glBufferData(GL_ARRAY_BUFFER, sphereVertices.size() * sizeof(float), sphereVertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphereIndices.size() * sizeof(unsigned int), sphereIndices.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    GLuint sunShader = createShaderProgram();
 
     // Set up view and projection matrices for camera
     glm::mat4 view = glm::mat4(glm::mat3(glm::lookAt(
@@ -131,6 +237,7 @@ int main()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        //Draw Skybox
         glDepthMask(GL_FALSE);
         glUseProgram(skyboxShader);
 
@@ -139,6 +246,16 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         glDepthMask(GL_TRUE);
+
+        // Draw sun
+        glUseProgram(sunShader);
+        glm::mat4 model = glm::mat4(1.0f);
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glBindVertexArray(sphereVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
 

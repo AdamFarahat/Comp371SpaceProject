@@ -43,7 +43,7 @@ const char* getSkyboxFragmentShaderSource()
     "}";
 }
 
-int createSkyboxVertexBufferObject()
+GLuint createSkyboxVAO()
 {
     // TODO
     // Upload geometry to GPU and return the Vertex Buffer Object ID
