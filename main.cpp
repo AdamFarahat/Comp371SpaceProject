@@ -159,6 +159,7 @@ int main()
         glfwTerminate();
         return -1;
     }
+
     // Create Skybox
     std::vector<std::string> faces{
         "skybox/right.png",
@@ -237,20 +238,28 @@ int main()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //Draw Skybox
+        // Calculate matrices
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 skyboxView = glm::mat4(glm::mat3(view)); // remove translation
+
+
+        // Draw Skybox
+        glDepthFunc(GL_LEQUAL); // ensure skybox depth passes
         glDepthMask(GL_FALSE);
         glUseProgram(skyboxShader);
-
+        glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "view"), 1, GL_FALSE, glm::value_ptr(skyboxView));
+        glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glBindVertexArray(skyboxVAO);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-
         glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS); // restore default
 
         // Draw sun
         glUseProgram(sunShader);
-        glm::mat4 model = glm::mat4(1.0f);
-        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUseProgram(sunShader);
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
         glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glBindVertexArray(sphereVAO);

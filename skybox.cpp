@@ -48,50 +48,51 @@ GLuint createSkyboxVAO()
     // TODO
     // Upload geometry to GPU and return the Vertex Buffer Object ID
     // A vertex is a point on a polygon, it contains positions and other data (eg: colors)
+    float scale = 10.0f; // You can increase this to make the skybox larger
     float skyboxVertices[] = {
-        // positions          
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
+        -1.0f * scale, -1.0f * scale, -1.0f * scale,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
+        1.0f * scale,  1.0f * scale, -1.0f * scale,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
 
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
+        -1.0f * scale, -1.0f * scale, -1.0f * scale,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
+        -1.0f * scale,  1.0f * scale,  1.0f * scale,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
 
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
+        1.0f * scale, -1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale, -1.0f * scale,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
 
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
+        -1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale, -1.0f * scale,  1.0f * scale,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
 
-        -1.0f,  1.0f, -1.0f,
-        1.0f,  1.0f, -1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
+        1.0f * scale,  1.0f * scale, -1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        1.0f * scale,  1.0f * scale,  1.0f * scale,
+        -1.0f * scale,  1.0f * scale,  1.0f * scale,
+        -1.0f * scale,  1.0f * scale, -1.0f * scale,
 
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        1.0f, -1.0f,  1.0f
+        -1.0f * scale, -1.0f * scale, -1.0f * scale,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
+        1.0f * scale, -1.0f * scale, -1.0f * scale,
+        -1.0f * scale, -1.0f * scale,  1.0f * scale,
+        1.0f * scale, -1.0f * scale,  1.0f * scale
     };
+
     // Create a vertex array
     GLuint vertexArrayObject;
     glGenVertexArrays(1, &vertexArrayObject);
