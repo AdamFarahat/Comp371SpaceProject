@@ -2,15 +2,15 @@
 #include <vector>
 #include <string>
 
-//#define GLEW_STATIC 1 // This allows linking with Static Library on Windows, without DLL
+#define GLEW_STATIC 1 // This allows linking with Static Library on Windows, without DLL
 #include <GL/glew.h>  // Include GLEW - OpenGL Extension Wrangler
 
 #include <GLFW/glfw3.h> // GLFW provides a cross-platform interface for creating a graphical context,
                         // initializing OpenGL and binding inputs
 
-#include <glm.hpp>                  // GLM is an optimized math library with syntax to similar to OpenGL Shading Language
-#include <gtc/matrix_transform.hpp> // Include for glm::perspective and glm::lookAt
-#include <gtc/type_ptr.hpp>         // Include for glm::value_ptr
+#include <glm/glm.hpp>                  // GLM is an optimized math library with syntax to similar to OpenGL Shading Language
+#include <glm/gtc/matrix_transform.hpp> // Include for glm::perspective and glm::lookAt
+#include <glm/gtc/type_ptr.hpp>         // Include for glm::value_ptr
 #include "stb_image.h"
 #include "skybox.h"
 #include "camera.h"
