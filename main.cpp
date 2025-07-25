@@ -21,7 +21,13 @@
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
-
+void drawSphere(GLuint shaderProgram,
+                GLuint vao,
+                GLsizei indexCount,
+                const glm::mat4& model,
+                const glm::mat4& view,
+                const glm::mat4& projection,
+                GLuint textureID);
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
@@ -71,9 +77,9 @@ const char* getFragmentShaderSource() {
         "in vec2 text;\n"
         "out vec4 FragColor;\n"
         //sampler here
-        "uniform sampler2D sunTexture;\n"
+        "uniform sampler2D baseTexture;\n"
         "void main() {\n"
-        "    vec4 text = texture(sunTexture, text);\n"
+        "    vec4 text = texture(baseTexture, text);\n"
         "    FragColor = text * vec4(vertexColor, 1.0);\n"
         "}";
 }
@@ -251,6 +257,7 @@ int main()
 
     //Texture for sun
     GLuint sunTextureID = loadTexture("Textures/sun.jpg");
+    GLuint ceresTextureID = loadTexture("Textures/ceres.jpg");
 
     //depth and face cull
     glEnable(GL_DEPTH_TEST);   
@@ -286,7 +293,7 @@ int main()
         glUseProgram(sunShader);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sunTextureID);
-        glUniform1i(glGetUniformLocation(sunShader, "sunTexture"), 0);
+        glUniform1i(glGetUniformLocation(sunShader, "baseTexture"), 0);
 
         // Draw Skybox
         glDepthFunc(GL_LEQUAL); // ensure skybox depth passes
@@ -312,7 +319,60 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glBindVertexArray(sphereVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
-        
+                
+
+        // orbit 1
+                // Calculate orbit angle
+        float orbitRadius = 15.0f; // distance from the sun
+        float orbitSpeed = glm::radians(20.0f); // 30 degrees per second
+        float orbitAngle = currentFrame * orbitSpeed;
+
+        // Build model matrix for orbiting sphere
+        glm::mat4 secondModel = glm::rotate(glm::mat4(1.0f), orbitAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // rotate around Y
+        secondModel = glm::translate(secondModel, glm::vec3(orbitRadius, 0.0f, 0.0f)); // then move outward
+
+        glUseProgram(sunShader);
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(secondModel));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+        // Disable texture by binding 0
+        glBindTexture(GL_TEXTURE_2D, ceresTextureID);
+
+        // Draw the sphere
+        glBindVertexArray(sphereVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
+
+        // === Moon (orbits the no-texture sphere) ===
+        float moonOrbitRadius = 3.0f;
+        float moonOrbitSpeed = glm::radians(90.0f); // faster than planet
+        float moonOrbitAngle = currentFrame * moonOrbitSpeed;
+
+        // First, rotate around the origin to place the planet
+        glm::mat4 moonModel = glm::rotate(glm::mat4(1.0f), orbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+        moonModel = glm::translate(moonModel, glm::vec3(orbitRadius, 0.0f, 0.0f));
+
+        // Then rotate around the planet to orbit it
+        moonModel = glm::rotate(moonModel, moonOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+        moonModel = glm::translate(moonModel, glm::vec3(moonOrbitRadius, 0.0f, 0.0f));
+
+        // Scale down the moon
+        moonModel = glm::scale(moonModel, glm::vec3(0.3f)); // adjust size as needed
+
+        glUseProgram(sunShader);
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(moonModel));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+        // Unbind texture to render without texture
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Draw the moon
+        glBindVertexArray(sphereVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
+
+
+
         glfwSwapBuffers(window);
         glfwPollEvents();
 
@@ -371,4 +431,29 @@ void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void drawSphere(GLuint shaderProgram,
+                GLuint vao,
+                GLsizei indexCount,
+                const glm::mat4& model,
+                const glm::mat4& view,
+                const glm::mat4& projection,
+                GLuint textureID)
+{
+    glUseProgram(shaderProgram);
+
+    // Set transformation matrices
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Texture binding (if 0, acts like "no texture")
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glUniform1i(glGetUniformLocation(shaderProgram, "baseTexture"), 0);
+
+    // Draw the sphere
+    glBindVertexArray(vao);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 }
