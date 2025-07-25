@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
 
 #define GLEW_STATIC 1 // This allows linking with Static Library on Windows, without DLL
 #include <GL/glew.h>  // Include GLEW - OpenGL Extension Wrangler
@@ -46,40 +48,18 @@ bool firstMouse = true;
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f;
 
-// shaders here
-const char *getVertexShaderSource()
+std::string loadShaderSource(const std::string &filePath)
 {
-    return "#version 330 core\n"
-           "layout (location = 0) in vec3 aPos;\n"
-           "layout (location = 1) in vec3 aColor;\n"
-           // add another one in vec2 (2d, uv), for textures
-           "layout (location = 2) in vec2 aText;\n"
-           "uniform mat4 model;\n"
-           "uniform mat4 view;\n"
-           "uniform mat4 projection;\n"
-           "out vec3 vertexColor;\n"
-           // here as well
-           "out vec2 text;\n"
-           "void main() {\n"
-           "    vertexColor = aColor;\n"
-           "    text = aText;\n"
-           "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-           "}";
-}
+    std::ifstream file(filePath);
+    std::stringstream buffer;
 
-const char *getFragmentShaderSource()
-{
-    return "#version 330 core\n"
-           "in vec3 vertexColor;\n"
-           // texture for frag here
-           "in vec2 text;\n"
-           "out vec4 FragColor;\n"
-           // sampler here
-           "uniform sampler2D baseTexture;\n"
-           "void main() {\n"
-           "    vec4 text = texture(baseTexture, text);\n"
-           "    FragColor = text * vec4(vertexColor, 1.0);\n"
-           "}";
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Failed to open shader file: " + filePath);
+    }
+
+    buffer << file.rdbuf();
+    return buffer.str();
 }
 
 GLuint compileShader(GLenum type, const char *source)
@@ -91,9 +71,18 @@ GLuint compileShader(GLenum type, const char *source)
 }
 
 GLuint createShaderProgram()
+
 {
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, getVertexShaderSource());
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, getFragmentShaderSource());
+    std::string vertexSource = loadShaderSource("shaders/vertex_shader.glsl");
+    std::string fragmentSource = loadShaderSource("shaders/fragment_shader.glsl");
+
+    const char *vertexShaderCode = vertexSource.c_str();
+    const char *fragmentShaderCode = fragmentSource.c_str();
+
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderCode);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderCode);
+
+
 
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
