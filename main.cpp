@@ -226,7 +226,7 @@ int main()
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float))); // UV
     glEnableVertexAttribArray(2);
 
-    GLuint sunShader = createShaderProgram();
+    GLuint sphereShader = createShaderProgram();
 
     // Set up view and projection matrices for camera
     glm::mat4 view = glm::mat4(glm::mat3(glm::lookAt(
@@ -281,10 +281,10 @@ int main()
         glm::mat4 skyboxView = glm::mat4(glm::mat3(view)); // remove translation
 
         // Binding textures
-        glUseProgram(sunShader);
+        glUseProgram(sphereShader);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sunTextureID);
-        glUniform1i(glGetUniformLocation(sunShader, "baseTexture"), 0);
+        glUniform1i(glGetUniformLocation(sphereShader, "baseTexture"), 0);
 
         // Draw Skybox
         glDepthFunc(GL_LEQUAL); // ensure skybox depth passes
@@ -302,7 +302,7 @@ int main()
         sunRotation += deltaTime * glm::radians(25.0f);
         glm::mat4 sunModel = glm::rotate(glm::mat4(1.0f), sunRotation, glm::vec3(0.0f, 1.0f, 0.0f));
         sunModel = glm::scale(sunModel, glm::vec3(3.0f));
-        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), sunModel, view, projection, sunTextureID);
+        drawSphere(sphereShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), sunModel, view, projection, sunTextureID);
 
         // mars
         float marsOrbitSpeed = glm::radians(10.0f);
@@ -315,7 +315,7 @@ int main()
         glm::mat4 marsModel = glm::rotate(glm::mat4(1.0f), marsOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // orbit sun
         marsModel = glm::translate(marsModel, glm::vec3(marsOrbitRadius, 0.0f, 0.0f));                   // move away from sun
         marsModel = glm::rotate(marsModel, marsRotation, glm::vec3(0.0f, 1.0f, 0.0f));                   // self-rotation
-        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), marsModel, view, projection, marsTextureID);
+        drawSphere(sphereShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), marsModel, view, projection, marsTextureID);
 
         // ceres
         float ceresOrbitSpeed = glm::radians(50.0f);
@@ -331,7 +331,7 @@ int main()
         ceresModel = glm::translate(ceresModel, glm::vec3(ceresOrbitRadius, 0.0f, 0.0f));                 // move away from mars
         ceresModel = glm::rotate(ceresModel, ceresRotation, glm::vec3(0.0f, 1.0f, 0.0f));                 // self-rotation
         ceresModel = glm::scale(ceresModel, glm::vec3(0.3f));
-        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), ceresModel, view, projection, ceresTextureID);
+        drawSphere(sphereShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), ceresModel, view, projection, ceresTextureID);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
