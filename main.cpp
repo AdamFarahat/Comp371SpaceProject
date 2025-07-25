@@ -14,6 +14,8 @@
 #include "stb_image.h"
 #include "skybox.h"
 #include "camera.h"
+#include "sphere.h"
+
 
 // input handling functions
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -45,23 +47,34 @@ const char* getVertexShaderSource() {
         "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;\n"
         "layout (location = 1) in vec3 aColor;\n"
+        //add another one in vec2 (2d, uv), for textures
+        "layout (location = 2) in vec2 aText;\n"
         "uniform mat4 model;\n"
         "uniform mat4 view;\n"
         "uniform mat4 projection;\n"
         "out vec3 vertexColor;\n"
+        //here as well
+        "out vec2 text;\n"
         "void main() {\n"
         "    vertexColor = aColor;\n"
+        "    text = aText;\n"
         "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
         "}";
 }
+
 
 const char* getFragmentShaderSource() {
     return
         "#version 330 core\n"
         "in vec3 vertexColor;\n"
+        //texture for frag here
+        "in vec2 text;\n"
         "out vec4 FragColor;\n"
+        //sampler here
+        "uniform sampler2D sunTexture;\n"
         "void main() {\n"
-        "    FragColor = vec4(vertexColor, 1.0);\n"
+        "    vec4 text = texture(sunTexture, text);\n"
+        "    FragColor = text * vec4(vertexColor, 1.0);\n"
         "}";
 }
 
@@ -87,39 +100,50 @@ GLuint createShaderProgram() {
     return shaderProgram;
 }
 
-void generateSphere(std::vector<float>& vertices, std::vector<unsigned int>& indices, int sectorCount = 36, int stackCount = 18) {
-    float radius = 1.0f;
-    for (int i = 0; i <= stackCount; ++i) {
-        float stackAngle = glm::pi<float>() / 2 - i * glm::pi<float>() / stackCount;
-        float xy = radius * cosf(stackAngle);
-        float z = radius * sinf(stackAngle);
-
-        for (int j = 0; j <= sectorCount; ++j) {
-            float sectorAngle = j * 2 * glm::pi<float>() / sectorCount;
-            float x = xy * cosf(sectorAngle);
-            float y = xy * sinf(sectorAngle);
-            vertices.push_back(x);
-            vertices.push_back(y);
-            vertices.push_back(z);
-            vertices.push_back(1.0f);
-            vertices.push_back(1.0f);
-            vertices.push_back(0.0f);
-        }
+//Load texture
+GLuint loadTexture(const char* filename)
+{
+    //load texture
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
+    if (!data) {
+        std::cerr << "Error::Texture could not load texture file:" << filename << std::endl;
+        return 0;
     }
 
-    for (int i = 0; i < stackCount; ++i) {
-        for (int j = 0; j < sectorCount; ++j) {
-            int first = i * (sectorCount + 1) + j;
-            int second = first + sectorCount + 1;
-            indices.push_back(first);
-            indices.push_back(second);
-            indices.push_back(first + 1);
-            indices.push_back(second);
-            indices.push_back(second + 1);
-            indices.push_back(first + 1);
-        }
+      //create & bind textures
+    GLuint textureId = 0;
+    glGenTextures(1, &textureId);
+    assert(textureId != 0);
+
+    glBindTexture(GL_TEXTURE_2D, textureId);
+
+    //set filter param
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+
+    //upload texture to the PU
+    GLenum format = 0;
+    if (nrChannels == 1) {
+        format = GL_RED;
     }
+    else if (nrChannels == 3) {
+        format = GL_RGB;
+    }
+    else if (nrChannels == 4) {
+        format = GL_RGBA;
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+
+    //Free resources
+
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return textureId;
 }
+
 
 int main()
 {
@@ -159,7 +183,6 @@ int main()
         glfwTerminate();
         return -1;
     }
-
     // Create Skybox
     std::vector<std::string> faces{
         "skybox/right.png",
@@ -196,10 +219,15 @@ int main()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphereIndices.size() * sizeof(unsigned int), sphereIndices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    //change attribute pointer to 8 floats, due to adding u,v for texture. + 1 more pointer for it too.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);//position
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));//color
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));//UV
+    glEnableVertexAttribArray(2);
 
     GLuint sunShader = createShaderProgram();
 
@@ -217,6 +245,17 @@ int main()
 
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
+
+    //spin the sun. (Praise the sun \[T]/ ) part 1 variable
+    float sunRotation = 0.0f; //start at 0, first frame.
+
+    //Texture for sun
+    GLuint sunTextureID = loadTexture("Textures/sun.jpg");
+
+    //depth and face cull
+    glEnable(GL_DEPTH_TEST);   
+    glDisable(GL_CULL_FACE);     
+
 
     // Main Loop
     while (!glfwWindowShouldClose(window))
@@ -243,6 +282,11 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 skyboxView = glm::mat4(glm::mat3(view)); // remove translation
 
+        //Binding textures
+        glUseProgram(sunShader);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, sunTextureID);
+        glUniform1i(glGetUniformLocation(sunShader, "sunTexture"), 0);
 
         // Draw Skybox
         glDepthFunc(GL_LEQUAL); // ensure skybox depth passes
@@ -258,13 +302,17 @@ int main()
 
         // Draw sun
         glUseProgram(sunShader);
-        glUseProgram(sunShader);
-        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+        //glm::mat4 model = glm::mat4(1.0f);
+        //actually spin the sun part 2 
+        sunRotation += deltaTime * glm::radians(45.0f); // 45 degrees per second
+        glm::mat4 model = glm::rotate(glm::mat4(1.0f), sunRotation, glm::vec3(0.0f, 1.0f, 0.0f)); //spinning on y axis, so right to left, i hope.
+
+        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glBindVertexArray(sphereVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
-
+        
         glfwSwapBuffers(window);
         glfwPollEvents();
 
