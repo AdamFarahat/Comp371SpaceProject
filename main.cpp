@@ -320,7 +320,7 @@ int main()
         float marsOrbitRadius = 10.0f;
 
         static float marsRotation = 0.0f;
-        marsRotation += deltaTime * glm::radians(60.0f);
+        marsRotation += deltaTime * glm::radians(-60.0f);
 
         glm::mat4 marsModel = glm::rotate(glm::mat4(1.0f), marsOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // orbit sun
         marsModel = glm::translate(marsModel, glm::vec3(marsOrbitRadius, 0.0f, 0.0f));                   // move away from sun
