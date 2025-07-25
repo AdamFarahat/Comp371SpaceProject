@@ -13,8 +13,6 @@
 #include "skybox.h"
 const char* getSkyboxVertexShaderSource()
 {
-    // TODO - Insert Vertex Shaders here ...
-    // For now, you use a string for your shader code, in the assignment, shaders will be stored in .glsl files
     return
     "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
@@ -31,7 +29,6 @@ const char* getSkyboxVertexShaderSource()
 
 const char* getSkyboxFragmentShaderSource()
 {
-    // TODO - Insert Fragment Shaders here ...
     return 
     "#version 330 core\n"
     "in vec3 TexCoords;"
@@ -45,10 +42,9 @@ const char* getSkyboxFragmentShaderSource()
 
 GLuint createSkyboxVAO()
 {
-    // TODO
     // Upload geometry to GPU and return the Vertex Buffer Object ID
-    // A vertex is a point on a polygon, it contains positions and other data (eg: colors)
-    float scale = 10.0f; // You can increase this to make the skybox larger
+    float scale = 10.0f; // You can increase this to make the skybox larger. This is set to 10.0f to cover the entire scene and be harder to see the corners.
+    // Vertices for 6 planes of the cubemap, making a cube skybox.
     float skyboxVertices[] = {
         -1.0f * scale,  1.0f * scale, -1.0f * scale,
         -1.0f * scale, -1.0f * scale, -1.0f * scale,
@@ -111,10 +107,6 @@ GLuint createSkyboxVAO()
 
 int compileAndLinkSkyboxShaders()
 {
-    // TODO
-    // compile and link shader program
-    // return shader program id
-    // ------------------------------------
     // vertex shader
     int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     const char* vertexShaderSource = getSkyboxVertexShaderSource();
@@ -161,6 +153,9 @@ unsigned int loadSkyBox(std::vector<std::string> faces){
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
+    //This loop is used to load each face of the cubemap and set the texture parameters.
+    // Each face is loaded with the same texture parameters, but different image data.
+    //It does it in order of right, left, top, bottom, front, back.
     int width, height, nrChannels;
     for (unsigned int i = 0; i < faces.size(); i++)
     {
@@ -178,6 +173,7 @@ unsigned int loadSkyBox(std::vector<std::string> faces){
             stbi_image_free(data);
         }
     }
+    //Clamp the edges of each new face to the adjacent face, so there is no seams.
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
