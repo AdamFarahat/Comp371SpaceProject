@@ -33,7 +33,7 @@ const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
 // camera
-glm::vec3 startingCameraPos = glm::vec3(0.0f, 0.0f, 2.0f);
+glm::vec3 startingCameraPos = glm::vec3(0.0f, 0.0f, 7.5f);
 glm::vec3 startingCameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 startingCameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -299,8 +299,9 @@ int main()
         glDepthFunc(GL_LESS); // restore default
 
         // sun
-        sunRotation += deltaTime * glm::radians(45.0f);
+        sunRotation += deltaTime * glm::radians(25.0f);
         glm::mat4 sunModel = glm::rotate(glm::mat4(1.0f), sunRotation, glm::vec3(0.0f, 1.0f, 0.0f));
+        sunModel = glm::scale(sunModel, glm::vec3(3.0f));
         drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), sunModel, view, projection, sunTextureID);
 
         // mars
