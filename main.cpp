@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
 
 #define GLEW_STATIC 1 // This allows linking with Static Library on Windows, without DLL
 #include <GL/glew.h>  // Include GLEW - OpenGL Extension Wrangler
@@ -16,12 +18,17 @@
 #include "camera.h"
 #include "sphere.h"
 
-
 // input handling functions
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
-
+void drawSphere(GLuint shaderProgram,
+                GLuint vao,
+                GLsizei indexCount,
+                const glm::mat4 &model,
+                const glm::mat4 &view,
+                const glm::mat4 &projection,
+                GLuint textureID);
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
@@ -41,53 +48,41 @@ bool firstMouse = true;
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f;
 
-//shaders here
-const char* getVertexShaderSource() {
-    return
-        "#version 330 core\n"
-        "layout (location = 0) in vec3 aPos;\n"
-        "layout (location = 1) in vec3 aColor;\n"
-        //add another one in vec2 (2d, uv), for textures
-        "layout (location = 2) in vec2 aText;\n"
-        "uniform mat4 model;\n"
-        "uniform mat4 view;\n"
-        "uniform mat4 projection;\n"
-        "out vec3 vertexColor;\n"
-        //here as well
-        "out vec2 text;\n"
-        "void main() {\n"
-        "    vertexColor = aColor;\n"
-        "    text = aText;\n"
-        "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-        "}";
+std::string loadShaderSource(const std::string &filePath)
+{
+    std::ifstream file(filePath);
+    std::stringstream buffer;
+
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Failed to open shader file: " + filePath);
+    }
+
+    buffer << file.rdbuf();
+    return buffer.str();
 }
 
-
-const char* getFragmentShaderSource() {
-    return
-        "#version 330 core\n"
-        "in vec3 vertexColor;\n"
-        //texture for frag here
-        "in vec2 text;\n"
-        "out vec4 FragColor;\n"
-        //sampler here
-        "uniform sampler2D sunTexture;\n"
-        "void main() {\n"
-        "    vec4 text = texture(sunTexture, text);\n"
-        "    FragColor = text * vec4(vertexColor, 1.0);\n"
-        "}";
-}
-
-GLuint compileShader(GLenum type, const char* source) {
+GLuint compileShader(GLenum type, const char *source)
+{
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, NULL);
     glCompileShader(shader);
     return shader;
 }
 
-GLuint createShaderProgram() {
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, getVertexShaderSource());
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, getFragmentShaderSource());
+GLuint createShaderProgram()
+
+{
+    std::string vertexSource = loadShaderSource("shaders/vertex_shader.glsl");
+    std::string fragmentSource = loadShaderSource("shaders/fragment_shader.glsl");
+
+    const char *vertexShaderCode = vertexSource.c_str();
+    const char *fragmentShaderCode = fragmentSource.c_str();
+
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderCode);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderCode);
+
+
 
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -100,50 +95,52 @@ GLuint createShaderProgram() {
     return shaderProgram;
 }
 
-//Load texture
-GLuint loadTexture(const char* filename)
+// Load texture
+GLuint loadTexture(const char *filename)
 {
-    //load texture
+    // load texture
     int width, height, nrChannels;
-    unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
-    if (!data) {
+    unsigned char *data = stbi_load(filename, &width, &height, &nrChannels, 0);
+    if (!data)
+    {
         std::cerr << "Error::Texture could not load texture file:" << filename << std::endl;
         return 0;
     }
 
-      //create & bind textures
+    // create & bind textures
     GLuint textureId = 0;
     glGenTextures(1, &textureId);
     assert(textureId != 0);
 
     glBindTexture(GL_TEXTURE_2D, textureId);
 
-    //set filter param
+    // set filter param
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-
-    //upload texture to the PU
+    // upload texture to the PU
     GLenum format = 0;
-    if (nrChannels == 1) {
+    if (nrChannels == 1)
+    {
         format = GL_RED;
     }
-    else if (nrChannels == 3) {
+    else if (nrChannels == 3)
+    {
         format = GL_RGB;
     }
-    else if (nrChannels == 4) {
+    else if (nrChannels == 4)
+    {
         format = GL_RGBA;
     }
 
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 
-    //Free resources
+    // Free resources
 
     stbi_image_free(data);
     glBindTexture(GL_TEXTURE_2D, 0);
     return textureId;
 }
-
 
 int main()
 {
@@ -219,14 +216,14 @@ int main()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphereIndices.size() * sizeof(unsigned int), sphereIndices.data(), GL_STATIC_DRAW);
 
-    //change attribute pointer to 8 floats, due to adding u,v for texture. + 1 more pointer for it too.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);//position
+    // change attribute pointer to 8 floats, due to adding u,v for texture. + 1 more pointer for it too.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0); // position
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));//color
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float))); // color
     glEnableVertexAttribArray(1);
 
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));//UV
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float))); // UV
     glEnableVertexAttribArray(2);
 
     GLuint sunShader = createShaderProgram();
@@ -246,16 +243,17 @@ int main()
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
 
-    //spin the sun. (Praise the sun \[T]/ ) part 1 variable
-    float sunRotation = 0.0f; //start at 0, first frame.
+    // spin the sun. (Praise the sun \[T]/ ) part 1 variable
+    float sunRotation = 0.0f; // start at 0, first frame.
 
-    //Texture for sun
+    // Texture for sun
     GLuint sunTextureID = loadTexture("Textures/sun.jpg");
+    GLuint ceresTextureID = loadTexture("Textures/ceres.jpg");
+    GLuint marsTextureID = loadTexture("Textures/mars.jpg");
 
-    //depth and face cull
-    glEnable(GL_DEPTH_TEST);   
-    glDisable(GL_CULL_FACE);     
-
+    // depth and face cull
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
 
     // Main Loop
     while (!glfwWindowShouldClose(window))
@@ -282,11 +280,11 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 skyboxView = glm::mat4(glm::mat3(view)); // remove translation
 
-        //Binding textures
+        // Binding textures
         glUseProgram(sunShader);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sunTextureID);
-        glUniform1i(glGetUniformLocation(sunShader, "sunTexture"), 0);
+        glUniform1i(glGetUniformLocation(sunShader, "baseTexture"), 0);
 
         // Draw Skybox
         glDepthFunc(GL_LEQUAL); // ensure skybox depth passes
@@ -300,22 +298,42 @@ int main()
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS); // restore default
 
-        // Draw sun
-        glUseProgram(sunShader);
-        //glm::mat4 model = glm::mat4(1.0f);
-        //actually spin the sun part 2 
-        sunRotation += deltaTime * glm::radians(45.0f); // 45 degrees per second
-        glm::mat4 model = glm::rotate(glm::mat4(1.0f), sunRotation, glm::vec3(0.0f, 1.0f, 0.0f)); //spinning on y axis, so right to left, i hope.
+        // sun
+        sunRotation += deltaTime * glm::radians(45.0f);
+        glm::mat4 sunModel = glm::rotate(glm::mat4(1.0f), sunRotation, glm::vec3(0.0f, 1.0f, 0.0f));
+        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), sunModel, view, projection, sunTextureID);
 
-        glUniformMatrix4fv(glGetUniformLocation(sunShader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(sunShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(sunShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glBindVertexArray(sphereVAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereIndices.size()), GL_UNSIGNED_INT, 0);
-        
+        // mars
+        float marsOrbitSpeed = glm::radians(10.0f);
+        float marsOrbitAngle = currentFrame * marsOrbitSpeed;
+        float marsOrbitRadius = 10.0f;
+
+        static float marsRotation = 0.0f;
+        marsRotation += deltaTime * glm::radians(-60.0f);
+
+        glm::mat4 marsModel = glm::rotate(glm::mat4(1.0f), marsOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // orbit sun
+        marsModel = glm::translate(marsModel, glm::vec3(marsOrbitRadius, 0.0f, 0.0f));                   // move away from sun
+        marsModel = glm::rotate(marsModel, marsRotation, glm::vec3(0.0f, 1.0f, 0.0f));                   // self-rotation
+        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), marsModel, view, projection, marsTextureID);
+
+        // ceres
+        float ceresOrbitSpeed = glm::radians(50.0f);
+        float ceresOrbitAngle = currentFrame * ceresOrbitSpeed;
+        float ceresOrbitRadius = 3.0f;
+
+        static float ceresRotation = 0.0f;
+        ceresRotation += deltaTime * glm::radians(90.0f);
+
+        glm::mat4 ceresModel = glm::rotate(glm::mat4(1.0f), marsOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // follow Mars
+        ceresModel = glm::translate(ceresModel, glm::vec3(marsOrbitRadius, 0.0f, 0.0f));                  // move next to Mars
+        ceresModel = glm::rotate(ceresModel, ceresOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));               // orbit Mars
+        ceresModel = glm::translate(ceresModel, glm::vec3(ceresOrbitRadius, 0.0f, 0.0f));                 // move away from mars
+        ceresModel = glm::rotate(ceresModel, ceresRotation, glm::vec3(0.0f, 1.0f, 0.0f));                 // self-rotation
+        ceresModel = glm::scale(ceresModel, glm::vec3(0.3f));
+        drawSphere(sunShader, sphereVAO, static_cast<GLsizei>(sphereIndices.size()), ceresModel, view, projection, ceresTextureID);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
-
     }
 
     // Shutdown GLFW
@@ -339,8 +357,6 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
-
-
 }
 
 // glfw: whenever the mouse moves, this callback is called
@@ -371,4 +387,29 @@ void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void drawSphere(GLuint shaderProgram,
+                GLuint vao,
+                GLsizei indexCount,
+                const glm::mat4 &model,
+                const glm::mat4 &view,
+                const glm::mat4 &projection,
+                GLuint textureID)
+{
+    glUseProgram(shaderProgram);
+
+    // Set transformation matrices
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Texture binding (if 0, acts like "no texture")
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glUniform1i(glGetUniformLocation(shaderProgram, "baseTexture"), 0);
+
+    // Draw the sphere
+    glBindVertexArray(vao);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 }
